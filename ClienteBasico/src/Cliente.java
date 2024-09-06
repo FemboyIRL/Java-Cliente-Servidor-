@@ -1,4 +1,3 @@
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -7,36 +6,45 @@ import java.net.Socket;
 
 public class Cliente {
 
-    public static void main(String[] args) throws IOException {
-        Socket salida = new Socket("localhost", 8080);
-        PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
-        BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));
-        BufferedReader passwordReader = new BufferedReader(new InputStreamReader(System.in));
-        BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
+    public static void main(String[] args) {
+        try (
+            // Creación del socket y los flujos de entrada/salida
+            Socket salida = new Socket("localhost", 8080);
+            PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
+            BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));
+            BufferedReader passwordReader = new BufferedReader(new InputStreamReader(System.in));
+            BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))
+        ) {
+            String entrada;
+            String lectura;
+            String passwordResponse;
+            String password;
 
-        String entrada;
-        String lectura;
-        String passwordResponse;
-        String password;
+            System.out.println("Ingrese la contraseña:");
 
-        System.out.println("Ingrese la contrasenia");
-
-        try {
+            // Bucle para manejar la autenticación
             while ((password = passwordReader.readLine()) != null) {
                 escritor.println(password);
                 passwordResponse = lector.readLine();
                 System.out.println(passwordResponse);
-                if (passwordResponse.equals("Felicidades te has logeado")) {
+
+                if ("Felicidades te has logeado".equals(passwordResponse)) {
+                    System.out.println("Ingrese un comando:");
+
                     while ((entrada = teclado.readLine()) != null) {
                         escritor.println(entrada);
                         lectura = lector.readLine();
                         System.out.println(lectura);
-                    }
-                }
-            }
-        } catch (NullPointerException e) {
-            System.out.println("Demasiados intentos cerrando conexion");
-        }
 
+                        if ("Cerrando conexión...".equals(lectura)) {
+                            System.out.println("Conexión cerrada por el servidor.");
+                        }
+                    }
+                    break; // Sale del bucle de autenticación después de cerrar el bucle de comandos
+                } 
+            }
+        } catch (IOException e) {
+            System.err.println("Error de conexión: " + e.getMessage());
+        }
     }
 }
