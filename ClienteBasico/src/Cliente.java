@@ -1,3 +1,4 @@
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,13 +9,12 @@ public class Cliente {
 
     public static void main(String[] args) {
         try (
-            // Creación del socket y los flujos de entrada/salida
-            Socket salida = new Socket("localhost", 8080);
-            PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
-            BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));
-            BufferedReader passwordReader = new BufferedReader(new InputStreamReader(System.in));
-            BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))
-        ) {
+                // Creación del socket y los flujos de entrada/salida
+                Socket salida = new Socket("localhost", 8080);
+                PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
+                BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));
+                BufferedReader passwordReader = new BufferedReader(new InputStreamReader(System.in));
+                BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in))) {
             String entrada;
             String lectura;
             String passwordResponse;
@@ -22,7 +22,6 @@ public class Cliente {
 
             System.out.println("Ingrese la contraseña:");
 
-            // Bucle para manejar la autenticación
             while ((password = passwordReader.readLine()) != null) {
                 escritor.println(password);
                 passwordResponse = lector.readLine();
@@ -35,13 +34,9 @@ public class Cliente {
                         escritor.println(entrada);
                         lectura = lector.readLine();
                         System.out.println(lectura);
-
-                        if ("Cerrando conexión...".equals(lectura)) {
-                            System.out.println("Conexión cerrada por el servidor.");
-                        }
+                        
                     }
-                    break; // Sale del bucle de autenticación después de cerrar el bucle de comandos
-                } 
+                }
             }
         } catch (IOException e) {
             System.err.println("Error de conexión: " + e.getMessage());
