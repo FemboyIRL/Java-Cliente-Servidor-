@@ -19,8 +19,7 @@ public class Cliente {
             String lectura;
             String passwordResponse;
             String password;
-
-            System.out.println("Ingrese la contraseña:");
+            System.out.println("Ingrese su nombre de usuario");
 
             while ((password = passwordReader.readLine()) != null) {
                 escritor.println(password);
@@ -34,7 +33,6 @@ public class Cliente {
                         escritor.println(entrada);
                         lectura = lector.readLine();
                         System.out.println(lectura);
-                        
                     }
                 }
             }
