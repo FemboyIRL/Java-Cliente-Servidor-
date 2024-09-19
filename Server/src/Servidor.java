@@ -1,18 +1,15 @@
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
+import models.FileManager;
+import models.Recado;
 import models.User;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 public class Servidor {
@@ -27,8 +24,7 @@ public class Servidor {
             String username;
             int passwordCounter = 0;
             boolean reverseMode = false;
-            boolean session = false;
-            List<User> users = null;
+            List<User> users;
 
             System.out.println("Servidor en línea");
 
@@ -36,7 +32,7 @@ public class Servidor {
                 username = lector.readLine();
                 boolean userExists = false;
                 User activeUser = null;
-                users = User.readUsersFile();
+                users = FileManager.readUsersFile();
                 for (User user : users) {
                     System.out.println(user.getId());
                     System.out.println(user.getUsername());
@@ -58,9 +54,9 @@ public class Servidor {
                         }
 
                         if (password.equals(activeUser.getPassword())) {
+                            _manageMessages(activeUser, lector, escritor);
                             escritor.println("Felicidades te has logeado");
-                            session = true;
-                            manejarComandos(lector, escritor, reverseMode, session);
+                            manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter);
                             break;
                         } else {
                             escritor.println("Contraseña incorrecta. Intente nuevamente:");
@@ -74,27 +70,47 @@ public class Servidor {
                 } else {
                     escritor.println("Ingrese la contrasenia para el nuevo usuario " + username);
                     password = lector.readLine();
+
                     int id = users.size() + 1;
-                    User newUser = new User(id, username, password);
-                    saveUserToFile(newUser);
-                    session = true;
+                    List<Integer> blockedUsers = new ArrayList();
+                    User newUser = new User(id, username, password, blockedUsers);
+                    FileManager.saveUserToFile(newUser);
+                    activeUser = newUser;
                     escritor.println("Felicidades te has logeado");
-                    manejarComandos(lector, escritor, reverseMode, session);
+                    manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter);
+
                 }
             }
         } catch (IOException e) {
             System.err.println("Error en el servidor: " + e.getMessage());
         }
 
-        System.out.println("Servidor cerrado.");
+        System.out.println(
+                "Servidor cerrado.");
     }
 
-    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, boolean session) throws IOException {
+    private static void _manageMessages(User activeUser, BufferedReader lector, PrintWriter escritor) throws ParseException, IOException {
+        List<Recado> allMessages;
+        allMessages = FileManager.readMessagesFile();
+        List<Recado> userMessages = new ArrayList<>();
+        for (Recado message : allMessages) {
+            if (message.getUsuarioPara().equals(activeUser.getUsername())) {
+                userMessages.add(message);
+            }
+        }
+        if (!userMessages.isEmpty()) {
+            escritor.println(userMessages);
+            FileManager.deleteMessagesFromFile(userMessages);            
+            lector.readLine();
+        }
+    }
+
+    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, User activeUser, int passwordCounter) throws IOException, ParseException {
         String entrada;
         String palabraDeletrear = null;
         int indexLetra = 0;
 
-        while (session) {
+        while (activeUser != null) {
             entrada = lector.readLine();
 
             System.out.println("Entrada recibida: " + entrada);
@@ -106,9 +122,9 @@ public class Servidor {
             }
 
             if (palabraDeletrear != null) {
-                if(reverseMode){
-                  String reversa = new StringBuilder(palabraDeletrear).reverse().toString();
-                  palabraDeletrear = reversa;
+                if (reverseMode) {
+                    String reversa = new StringBuilder(palabraDeletrear).reverse().toString();
+                    palabraDeletrear = reversa;
                 }
                 if (indexLetra < palabraDeletrear.length()) {
                     escritor.println(palabraDeletrear.charAt(indexLetra));
@@ -151,16 +167,119 @@ public class Servidor {
                     break;
                 case "reverse off":
                     escritor.println("Saliendo del modo reversa");
+                    escritor.flush();
                     reverseMode = false;
                     break;
                 case "reverse on":
                     escritor.println("Entrando en modo reversa");
                     reverseMode = true;
+                    escritor.flush();
                     break;
                 case "pt":
                     escritor.println("Ingrese su nombre de usuario");
                     escritor.flush();
-                    session = false;
+                    passwordCounter = 0;
+                    activeUser = null;
+                    break;
+                case "usuarios":
+                    List<User> users = FileManager.readUsersFile();
+                    escritor.println(users);
+                    break;
+                case "recado":
+                    users = FileManager.readUsersFile();
+                    List<Recado> allMessages = FileManager.readMessagesFile();
+                    User userExists = null;
+                    for (User user : users) {
+                        System.out.println(argumento);
+                        if (argumento.equals(user.getUsername())) {
+                            System.out.println(user.getUsername());
+                            System.out.println(user.getId());
+                            userExists = user;
+                        }
+                    }
+                    if (userExists != null) {
+                        if (userExists.getBlockedUsersList().contains(activeUser.getId())) {
+                            escritor.println("No puedes enviar un recado a " + userExists.getUsername() + " porque te ha bloqueado.");
+                        } else {
+                            escritor.println("Inserte el contenido del recado");
+                            String contenido = lector.readLine();
+                            Recado recado = new Recado(allMessages.size() + 1, activeUser.getUsername(), userExists.getUsername(), contenido);
+                            FileManager.writeMessageToFile(recado);
+                            escritor.println("Recado enviado de " + activeUser.getUsername() + " para " + userExists.getUsername());
+                        }
+                    } else {
+                        escritor.println("Usuario destinatario no encontrado.");
+                    }
+                    break;
+                case "bloquear":
+                    users = FileManager.readUsersFile();
+                    userExists = null;
+                    for (User user : users) {
+                        System.out.println(argumento);
+                        if (argumento.equals(user.getUsername())) {
+                            System.out.println(user.getUsername());
+                            System.out.println(user.getId());
+                            userExists = user;
+                        }
+                    }
+                    if (userExists != null) {
+                        escritor.println("Seguro que deseas bloquear a " + argumento + "(y/n)");
+                        String ans = lector.readLine();
+                        switch (ans) {
+                            case "y":
+                                boolean operation = activeUser.blockUser(userExists);
+                                if (operation) {
+                                    FileManager.updateUserInFile(activeUser);
+                                    escritor.println("Usuario " + argumento + " bloqueado exitosamente");
+                                } else {
+                                    escritor.println("Usuario " + argumento + " ya está bloqueado.");
+                                }
+                                break;
+                            case "n":
+                                escritor.println("Usuario " + argumento + " no ha sido bloqueado");
+                                break;
+                            default:
+                                escritor.println("Responda con y o n ");
+                                break;
+                        }
+                    } else {
+                        escritor.println("Usuario destinatario no encontrado.");
+                    }
+                    break;
+                case "desbloquear":
+                    users = FileManager.readUsersFile();
+                    userExists = null;
+                    for (User user : users) {
+                        System.out.println(argumento);
+                        if (argumento.equals(user.getUsername())) {
+                            System.out.println(user.getUsername());
+                            System.out.println(user.getId());
+                            userExists = user;
+                        }
+                    }
+                    if (userExists != null) {
+                        escritor.println("Seguro que deseas desbloquear a " + argumento + "(y/n)");
+                        String ans = lector.readLine();
+                        switch (ans) {
+                            case "y":
+                                boolean operation = activeUser.unblockUser(userExists);
+                                if (operation) {
+                                    FileManager.updateUserInFile(activeUser);
+                                    escritor.println("Usuario " + argumento + " desbloqueado exitosamente");
+                                } else {
+                                    escritor.println("Usuario " + argumento + " no está bloqueado.");
+                                }
+                                break;
+                            case "n":
+                                escritor.println("Usuario " + argumento + " no ha sido desbloqueado");
+                                break;
+                            default:
+                                escritor.println("Responda con y o n ");
+                                break;
+                        }
+                    } else {
+                        escritor.println("Usuario destinatario no encontrado.");
+                    }
                     break;
                 default:
                     if (reverseMode) {
@@ -173,44 +292,6 @@ public class Servidor {
                     }
                     break;
             }
-        }
-    }
-
-
-    private static void saveUserToFile(User user) {
-        String filePath = "user_data.json";
-        File file = new File(filePath);
-
-        if (!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                System.out.println("Error al crear el archivo: " + e.getMessage());
-                return;
-            }
-        }
-
-        JSONArray userArray = new JSONArray();
-        if (file.length() != 0) {
-            try (FileReader reader = new FileReader(file)) {
-                JSONParser parser = new JSONParser();
-                userArray = (JSONArray) parser.parse(reader);
-            } catch (IOException | ParseException e) {
-                System.out.println("Error al leer el archivo existente: " + e.getMessage());
-            }
-        }
-
-        JSONObject userObj = new JSONObject();
-        userObj.put("id", user.getId());
-        userObj.put("username", user.getUsername());
-        userObj.put("password", user.getPassword());
-        userArray.add(userObj);
-
-        try (FileWriter fileWriter = new FileWriter(file)) {
-            fileWriter.write(userArray.toJSONString());
-            System.out.println("Usuario agregado al archivo en: " + file.getAbsolutePath());
-        } catch (IOException e) {
-            System.out.println("Error al escribir en el archivo: " + e.getMessage());
         }
     }
 }

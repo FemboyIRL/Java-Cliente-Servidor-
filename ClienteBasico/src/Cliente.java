@@ -9,7 +9,6 @@ public class Cliente {
 
     public static void main(String[] args) {
         try (
-                // Creación del socket y los flujos de entrada/salida
                 Socket salida = new Socket("localhost", 8080);
                 PrintWriter escritor = new PrintWriter(salida.getOutputStream(), true);
                 BufferedReader lector = new BufferedReader(new InputStreamReader(salida.getInputStream()));

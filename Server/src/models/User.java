@@ -1,26 +1,25 @@
-
 package models;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 public class User {
+
     private int id;
     private String username;
     private String password;
+    private List<Integer> blockedUsersID;
 
     // Constructor que inicializa los atributos
-    public User(int id, String username, String password) {
+    public User(int id, String username, String password, List<Integer> blockedUsersID) {
         this.id = id;
         this.username = username;
         this.password = password;
+        this.blockedUsersID = blockedUsersID;
+    }
+
+    User(String string) {
+        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
     }
 
     // Getter para 'id'
@@ -52,43 +51,47 @@ public class User {
     public void setPassword(String password) {
         this.password = password;
     }
-    
-    public static List<User> readUsersFile() throws ParseException {
-        List<User> userList = new ArrayList<>();
-        JSONParser parser = new JSONParser();
 
-        String filePath = "user_data.json";
-
-        String projectDir = System.getProperty("user.dir");
-        File file = new File(projectDir, filePath);
-
-        if (!file.exists()) {
-            System.out.println("El archivo no existe, se devolverá una lista vacía.");
-            return userList;
-        }
-
-        try (FileReader reader = new FileReader(file)) {
-            JSONArray jsonArray = (JSONArray) parser.parse(reader);
-
-            for (Object obj : jsonArray) {
-                JSONObject jsonObject = (JSONObject) obj;
-                int id = ((Long) jsonObject.get("id")).intValue();
-                String username = (String) jsonObject.get("username");
-                String password = (String) jsonObject.get("password");
-
-                User user = new User(id, username, password);
-                userList.add(user);
-            }
-
-        } catch (IOException | ParseException e) {
-
-        }
-
-        return userList;
+    public void setBlockedUsersList(List<Integer> blockedUsersID) {
+        this.blockedUsersID = blockedUsersID;
     }
-    
-     @Override
-        public String toString() {
-            return "User{id=" + id + ", username='" + username + "', password='" + password + "'}";
+
+    public List<Integer> getBlockedUsersList() {
+        return blockedUsersID;
+    }
+
+    public boolean blockUser(User user) {
+        if (blockedUsersID == null) {
+            blockedUsersID = new ArrayList<>();
         }
+
+        if (!blockedUsersID.contains(user.getId())) {
+            blockedUsersID.add(user.getId());
+            System.out.println(user.getUsername() + " ha sido bloqueado.");
+            return true;
+        } else {
+            System.out.println(user.getUsername() + " ya está bloqueado.");
+            return false;
+        }
+    }
+
+    public boolean unblockUser(User user) {
+        if (blockedUsersID == null) {
+            blockedUsersID = new ArrayList<>();
+        }
+
+        if (blockedUsersID.contains(user.getId())) {
+            blockedUsersID.remove(Integer.valueOf(user.getId()));
+            System.out.println(user.getUsername() + " ha sido desbloqueado.");
+            return true;
+        } else {
+            System.out.println(user.getUsername() + " no está bloqueado.");
+            return false;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "User{id=" + id + ", username='" + username + "', password='" + password + "'}";
+    }
 }
