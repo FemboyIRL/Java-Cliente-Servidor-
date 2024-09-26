@@ -1,6 +1,8 @@
 
 import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -30,8 +32,19 @@ public class Cliente {
 
                     while ((entrada = teclado.readLine()) != null) {
                         escritor.println(entrada);
-                        lectura = lector.readLine();
-                        System.out.println(lectura);
+
+                        if (entrada.startsWith("bajarArchivos")) {
+                            String[] partes = entrada.split(" ", 2);
+                            if (partes.length > 1) {
+                                String nombreArchivo = partes[1];
+                                recibirArchivo(salida, nombreArchivo);
+                            } else {
+                                System.out.println("Debe proporcionar el nombre del archivo.");
+                            }
+                        } else {
+                            lectura = lector.readLine();
+                            System.out.println(lectura);
+                        }
                     }
                 }
             }
@@ -39,4 +52,29 @@ public class Cliente {
             System.err.println("Error de conexión: " + e.getMessage());
         }
     }
+
+    private static void recibirArchivo(Socket socket, String nombreArchivo) {
+        try (InputStream inputStream = socket.getInputStream();
+                FileOutputStream fileOutputStream = new FileOutputStream(nombreArchivo)) {
+
+            byte[] buffer = new byte[1024];  
+            int bytesRead;
+
+            System.out.println("Descargando archivo: " + nombreArchivo);
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                fileOutputStream.write(buffer, 0, bytesRead);
+            }
+
+            System.out.println("Archivo recibido y guardado como: " + nombreArchivo);
+
+            BufferedReader lector = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String mensajeFinal = lector.readLine(); 
+            System.out.println(mensajeFinal);
+
+        } catch (IOException e) {
+            System.err.println("Error al recibir el archivo: " + e.getMessage());
+        }
+    }
+
 }

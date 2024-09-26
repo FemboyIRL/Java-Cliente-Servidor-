@@ -42,7 +42,84 @@ public class FileManager {
 
         return jsonObjectList;
     }
-    
+
+    public static void saveSharedFileToServer(SharedFiles archivoCompartido) {
+        String filePath = "archivos_compartidos.json";
+        File file = new File(filePath);
+
+        List<JSONObject> jsonArray = connectToFile(filePath);
+        JSONArray archivosArray = new JSONArray();
+        archivosArray.addAll(jsonArray);
+
+        boolean archivoExiste = false;
+        for (Object obj : archivosArray) {
+            JSONObject jsonObj = (JSONObject) obj;
+            int archivoId = ((Long) jsonObj.get("id")).intValue();
+            if (archivoId == archivoCompartido.getId()) {
+                archivoExiste = true;
+                break;
+            }
+        }
+
+        if (!archivoExiste) {
+            JSONObject archivoObj = new JSONObject();
+            archivoObj.put("id", archivoCompartido.getId());
+            archivoObj.put("usuarioID", archivoCompartido.getUsuarioID());
+            archivoObj.put("nombre", archivoCompartido.getNombre());
+            archivoObj.put("descargas", archivoCompartido.getDescargas());
+
+            archivosArray.add(archivoObj);
+        } else {
+            System.out.println("El archivo con ID " + archivoCompartido.getId() + " ya existe en el archivo.");
+        }
+
+        try (FileWriter fileWriter = new FileWriter(file)) {
+            fileWriter.write(archivosArray.toJSONString());
+            System.out.println("Archivo agregado o actualizado en el servidor: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Error al escribir en el archivo: " + e.getMessage());
+        }
+    }
+
+    public static List<SharedFiles> readSharedFilesFromServer() {
+        String filePath = "archivos_compartidos.json";
+        File file = new File(filePath);
+        List<SharedFiles> archivosCompartidosList = new ArrayList<>();
+
+        if (!file.exists()) {
+            System.out.println("El archivo no existe: " + file.getAbsolutePath());
+            return archivosCompartidosList;
+        }
+
+        try (FileReader reader = new FileReader(file)) {
+            JSONParser jsonParser = new JSONParser();
+            Object obj = jsonParser.parse(reader);
+            JSONArray archivosArray = (JSONArray) obj;
+
+            for (Object archivoObj : archivosArray) {
+                JSONObject archivoJSON = (JSONObject) archivoObj;
+
+                int id = ((Long) archivoJSON.get("id")).intValue();
+                int usuarioID = ((Long) archivoJSON.get("usuarioID")).intValue();
+                String nombre = (String) archivoJSON.get("nombre");
+                int descargas = ((Long) archivoJSON.get("descargas")).intValue();
+
+                SharedFiles archivoCompartido = new SharedFiles();
+                archivoCompartido.setId(id);
+                archivoCompartido.setUsuarioID(usuarioID);
+                archivoCompartido.setNombre(nombre);
+                archivoCompartido.setDescargas(descargas);
+
+                archivosCompartidosList.add(archivoCompartido);
+            }
+
+        } catch (IOException | ParseException e) {
+            System.out.println("Error al leer el archivo: " + e.getMessage());
+        }
+
+        return archivosCompartidosList;
+    }
+
     public static void saveUserToFile(User user) {
         String filePath = "user_data.json";
         File file = new File(filePath);
@@ -125,7 +202,7 @@ public class FileManager {
 
         return userList;
     }
-    
+
     public static void updateUserInFile(User updatedUser) {
         String filePath = "user_data.json";
         File file = new File(filePath);
@@ -218,8 +295,8 @@ public class FileManager {
 
         return recadoList;
     }
-    
-     public static void deleteMessagesFromFile(List<Recado> messagesToDelete) {
+
+    public static void deleteMessagesFromFile(List<Recado> messagesToDelete) {
         String filePath = "recados_data.json";
         File file = new File(filePath);
         List<JSONObject> jsonArray = connectToFile(filePath);

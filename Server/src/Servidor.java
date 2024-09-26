@@ -1,20 +1,28 @@
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import models.FileManager;
 import models.Recado;
+import models.SharedFiles;
 import models.User;
 import org.json.simple.parser.ParseException;
 
 public class Servidor {
 
-    public static void main(String[] args) throws ParseException {
+    public static void main(String[] args) throws ParseException, java.text.ParseException {
         try (
                 ServerSocket servidor = new ServerSocket(8080);
                 Socket cliente = servidor.accept();
@@ -56,7 +64,7 @@ public class Servidor {
                         if (password.equals(activeUser.getPassword())) {
                             _manageMessages(activeUser, lector, escritor);
                             escritor.println("Felicidades te has logeado");
-                            manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter);
+                            manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter, servidor, cliente);
                             break;
                         } else {
                             escritor.println("Contraseña incorrecta. Intente nuevamente:");
@@ -77,7 +85,7 @@ public class Servidor {
                     FileManager.saveUserToFile(newUser);
                     activeUser = newUser;
                     escritor.println("Felicidades te has logeado");
-                    manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter);
+                    manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter, servidor, cliente);
 
                 }
             }
@@ -100,12 +108,12 @@ public class Servidor {
         }
         if (!userMessages.isEmpty()) {
             escritor.println(userMessages);
-            FileManager.deleteMessagesFromFile(userMessages);            
+            FileManager.deleteMessagesFromFile(userMessages);
             lector.readLine();
         }
     }
 
-    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, User activeUser, int passwordCounter) throws IOException, ParseException {
+    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, User activeUser, int passwordCounter, ServerSocket servidor, Socket cliente) throws IOException, ParseException, java.text.ParseException {
         String entrada;
         String palabraDeletrear = null;
         int indexLetra = 0;
@@ -274,13 +282,95 @@ public class Servidor {
                                 escritor.println("Usuario " + argumento + " no ha sido desbloqueado");
                                 break;
                             default:
-                                escritor.println("Responda con y o n ");
+                                escritor.println("Responda con y/n ");
                                 break;
                         }
                     } else {
                         escritor.println("Usuario destinatario no encontrado.");
                     }
                     break;
+                case "listarArchivos":
+                    List<SharedFiles> archivosCompartidos = FileManager.readSharedFilesFromServer();
+                    if (!archivosCompartidos.isEmpty()) {
+                        escritor.println(archivosCompartidos);
+                        escritor.flush();
+                    }
+                    break;
+                case "subirArchivos":
+                    if (!argumento.isEmpty()) {
+                        File sourceFile = new File(argumento);
+
+                        if (!sourceFile.isAbsolute()) {
+                            escritor.println("Por favor, ingresa la ruta absoluta del archivo.");
+                            break;
+                        }
+
+                        System.out.println("Buscando el archivo en: " + sourceFile.getAbsolutePath());
+
+                        if (!sourceFile.exists()) {
+                            escritor.println("El archivo especificado no se encontró en la ruta: " + argumento);
+                            break;
+                        }
+                        
+                        SimpleDateFormat formatoFecha = new SimpleDateFormat("dd/MM/yyyy");
+                        Date fechaExpiracion = null;
+                        escritor.println("Ingrese la fecha de expiracion del archivo(dd/MM/yyyy)");
+                        String fechaExpiracionString = lector.readLine();
+                        fechaExpiracion = formatoFecha.parse(fechaExpiracionString);
+
+                        String destinationPath = "compartidos/" + sourceFile.getName();
+                        System.out.println(destinationPath);
+                        try {
+                            File destinationFile = new File(destinationPath);
+                            destinationFile.getParentFile().mkdirs();
+                            Files.copy(new File(argumento).toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            System.out.println("Archivo subido correctamente: " + destinationFile.getAbsolutePath());
+
+                            SharedFiles archivo = new SharedFiles(1, activeUser.getId(), sourceFile.getName(), 0, fechaExpiracion);
+                            System.out.println(archivo);
+                            FileManager.saveSharedFileToServer(archivo);
+                            escritor.println("El archivo ha sido subido de forma correcta");
+
+                        } catch (IOException e) {
+                            escritor.println("Error al subir al archivo " + e.getMessage());
+                        }
+                    } else {
+                        escritor.println("Ingresa la ruta del archivo a subir");
+                    }
+                    break;
+                case "bajarArchivos":
+                    if (!argumento.isEmpty()) {
+                        String filePath = "compartidos/" + argumento;
+                        File fileToDownload = new File(filePath);
+
+                        System.out.println("Buscando el archivo para descargar en: " + fileToDownload.getAbsolutePath());
+
+                        if (!fileToDownload.exists()) {
+                            escritor.println("El archivo especificado no se encontró: " + fileToDownload.getAbsolutePath());
+                            break;
+                        }
+                        try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
+                                OutputStream outputStream = cliente.getOutputStream()) {
+
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+
+                            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, bytesRead);
+                            }
+
+                            outputStream.flush();
+                            escritor.println("Archivo descargado correctamente: " + fileToDownload.getName());
+
+                        } catch (IOException e) {
+                            escritor.println("Error al descargar el archivo: " + e.getMessage());
+                        }
+
+                    } else {
+                        escritor.println("Ingresa el nombre del archivo a descargar.");
+                    }
+                    break;
+
                 default:
                     if (reverseMode) {
                         String reversa = new StringBuilder(entrada).reverse().toString();

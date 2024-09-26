@@ -5,6 +5,7 @@
         <group>
             <file>file:/home/michi/NetBeansProjects/Server/src/models/Recado.java</file>
             <file>file:/home/michi/NetBeansProjects/Server/src/models/FileManager.java</file>
+            <file>file:/home/michi/NetBeansProjects/Server/src/models/SharedFiles.java</file>
             <file>file:/home/michi/NetBeansProjects/Server/src/models/User.java</file>
             <file>file:/home/michi/NetBeansProjects/Server/src/Servidor.java</file>
         </group>
