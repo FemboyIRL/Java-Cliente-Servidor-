@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -67,6 +69,8 @@ public class FileManager {
             archivoObj.put("usuarioID", archivoCompartido.getUsuarioID());
             archivoObj.put("nombre", archivoCompartido.getNombre());
             archivoObj.put("descargas", archivoCompartido.getDescargas());
+            archivoObj.put("password", archivoCompartido.getNombre());
+            archivoObj.put("fechaExpiracion", archivoCompartido.getDescargas());
 
             archivosArray.add(archivoObj);
         } else {
@@ -81,7 +85,7 @@ public class FileManager {
         }
     }
 
-    public static List<SharedFiles> readSharedFilesFromServer() {
+    public static List<SharedFiles> readSharedFilesFromServer() throws java.text.ParseException {
         String filePath = "archivos_compartidos.json";
         File file = new File(filePath);
         List<SharedFiles> archivosCompartidosList = new ArrayList<>();
@@ -96,6 +100,8 @@ public class FileManager {
             Object obj = jsonParser.parse(reader);
             JSONArray archivosArray = (JSONArray) obj;
 
+            SimpleDateFormat formatoFechaHora = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+
             for (Object archivoObj : archivosArray) {
                 JSONObject archivoJSON = (JSONObject) archivoObj;
 
@@ -103,12 +109,19 @@ public class FileManager {
                 int usuarioID = ((Long) archivoJSON.get("usuarioID")).intValue();
                 String nombre = (String) archivoJSON.get("nombre");
                 int descargas = ((Long) archivoJSON.get("descargas")).intValue();
+                String password = (String) archivoJSON.get("password");
+                String fechaExpiracionString = (String) archivoJSON.get("fechaExpiracion");
 
+                Date fechaExpiracion = null;
+                fechaExpiracion = formatoFechaHora.parse(fechaExpiracionString);
+                
                 SharedFiles archivoCompartido = new SharedFiles();
                 archivoCompartido.setId(id);
                 archivoCompartido.setUsuarioID(usuarioID);
                 archivoCompartido.setNombre(nombre);
                 archivoCompartido.setDescargas(descargas);
+                archivoCompartido.setPassword(password);
+                archivoCompartido.setFechaExpiracion(fechaExpiracion);
 
                 archivosCompartidosList.add(archivoCompartido);
             }

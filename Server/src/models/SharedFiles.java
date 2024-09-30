@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package models;
 
 import java.util.Date;
@@ -13,19 +9,21 @@ public class SharedFiles {
     private int usuarioID;
     private String nombre;
     private int descargas;
-    private Date fechaExpiracion;
+    private String password; // Atributo para la contraseña
+    private Date fechaExpiracion; // Atributo para la fecha de expiración
 
     // Constructor vacío
     public SharedFiles() {
     }
 
     // Constructor con parámetros
-    public SharedFiles(int id, int usuarioID, String nombre, int descargas, Date fechaExpiracion) {
+    public SharedFiles(int id, int usuarioID, String nombre, int descargas, String password, Date fechaExpiracion) {
         this.id = id;
         this.usuarioID = usuarioID;
         this.nombre = nombre;
         this.descargas = descargas;
-        this.fechaExpiracion = fechaExpiracion;
+        this.password = password; // Inicialización de la contraseña
+        this.fechaExpiracion = fechaExpiracion; // Inicialización de la fecha de expiración
     }
 
     // Getters y Setters
@@ -61,6 +59,14 @@ public class SharedFiles {
         this.descargas = descargas;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     public Date getFechaExpiracion() {
         return fechaExpiracion;
     }
@@ -88,6 +94,7 @@ public class SharedFiles {
                 ", usuarioID=" + usuarioID +
                 ", nombre='" + nombre + '\'' +
                 ", descargas=" + descargas +
+                ", password='" + password + '\'' + // Incluir la contraseña en la representación del objeto
                 ", fechaExpiracion=" + fechaExpiracion +
                 '}';
     }
