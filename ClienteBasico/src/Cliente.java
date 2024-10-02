@@ -70,7 +70,7 @@ public class Cliente {
             // Leer el archivo y guardarlo
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 fileOutputStream.write(buffer, 0, bytesRead);
-                System.out.println("Bytes leídos: " + bytesRead);
+                System.out.println("Bytes leídos: " + bytesRead); // Para depuración
             }
 
             System.out.println("Archivo recibido y guardado como: " + nombreArchivo);

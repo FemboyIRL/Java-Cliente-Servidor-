@@ -428,11 +428,9 @@ public class Servidor {
                             escritor.println("Ingresa el nombre del archivo a descargar.");
                             break;
                         }
-                        String filePath = "compartidos/" + argumento;
 
+                        String filePath = "compartidos/" + argumento;
                         File fileToDownload = new File(filePath);
-                        
-                        System.out.println("Tamaño del archivo: " + fileToDownload.length() + " bytes");
 
                         System.out.println("Buscando el archivo para descargar en: " + fileToDownload.getAbsolutePath());
 
@@ -450,15 +448,12 @@ public class Servidor {
                             byte[] buffer = new byte[1024];
                             int bytesRead;
 
-                            // Leer el archivo y enviarlo al cliente
                             while ((bytesRead = fileInputStream.read(buffer)) != -1) {
                                 outputStream.write(buffer, 0, bytesRead);
                             }
 
-                            outputStream.flush(); // Asegúrate de que todos los datos se envían
-
-                            // Enviar un mensaje final para indicar que la transferencia ha terminado
-                            outputStream.write("FIN".getBytes()); // Mensaje final
+                            outputStream.flush();
+                            escritor.println("Archivo descargado correctamente: " + fileToDownload.getName());
 
                         } catch (IOException e) {
                             escritor.println("Error al descargar el archivo: " + e.getMessage());
@@ -471,6 +466,7 @@ public class Servidor {
                             }
                         }
                         break;
+
                     default:
                         if (reverseMode) {
                             String reversa = new StringBuilder(entrada).reverse().toString();
