@@ -38,6 +38,8 @@ public class Servidor {
 
             System.out.println("Servidor en línea");
 
+            deleteExpiredFiles();
+
             while (true) {
                 username = lector.readLine();
                 boolean userExists = false;
@@ -99,6 +101,35 @@ public class Servidor {
                 "Servidor cerrado.");
     }
 
+    private static void deleteExpiredFiles() throws java.text.ParseException {
+        String sharedFilesPath = "compartidos/";
+        List<SharedFiles> archivosCompartidos = FileManager.readSharedFilesFromServer();
+        List<SharedFiles> expiredFiles = new ArrayList<>();
+
+        for (SharedFiles archivo : archivosCompartidos) {
+            if (archivo.haExpirado()) {
+                String fileToDeletePath = sharedFilesPath + archivo.getNombre();
+                File fileToDelete = new File(fileToDeletePath);
+                expiredFiles.add(archivo);
+
+                if (fileToDelete.exists()) {
+                    if (fileToDelete.delete()) {
+                        System.out.println("Archivo eliminado: " + fileToDelete.getAbsolutePath());
+                    } else {
+                        System.out.println("No se pudo eliminar el archivo: " + fileToDelete.getAbsolutePath());
+                    }
+                }
+            }
+        }
+        if (!expiredFiles.isEmpty()) {
+            System.out.println("Archivos expirados eliminados. Actualizando el registro de archivos compartidos...");
+            FileManager.deleteSharedFilesFromFile(expiredFiles);
+        } else {
+            System.out.println("No se encontraron archivos expirados.");
+        }
+
+    }
+
     private static void _manageMessages(User activeUser, BufferedReader lector, PrintWriter escritor) throws ParseException, IOException {
         List<Recado> allMessages;
         allMessages = FileManager.readMessagesFile();
@@ -112,6 +143,34 @@ public class Servidor {
             escritor.println(userMessages);
             FileManager.deleteMessagesFromFile(userMessages);
             lector.readLine();
+        }
+    }
+
+    private static void downloadFile(File fileToDownload, Socket clientSocket, PrintWriter escritor) {
+        try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
+                OutputStream outputStream = clientSocket.getOutputStream()) {
+
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+
+            outputStream.flush();
+
+            outputStream.write("FIN".getBytes());
+
+            System.out.println("Archivo enviado correctamente: " + fileToDownload.getName());
+        } catch (IOException e) {
+            escritor.println("Error al descargar el archivo: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                System.err.println("Error al cerrar el socket del cliente: " + e.getMessage());
+            }
         }
     }
 
@@ -305,92 +364,113 @@ public class Servidor {
                         }
                         break;
                     case "subirArchivos":
-                        if (!argumento.isEmpty()) {
-                            File sourceFile = new File(argumento);
-
-                            if (!sourceFile.isAbsolute()) {
-                                escritor.println("Por favor, ingresa la ruta absoluta del archivo.");
-                                break;
-                            }
-
-                            System.out.println("Buscando el archivo en: " + sourceFile.getAbsolutePath());
-
-                            if (!sourceFile.exists()) {
-                                escritor.println("El archivo especificado no se encontró en la ruta: " + argumento);
-                                break;
-                            }
-
-                            SimpleDateFormat formatoFechaHora = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-                            Date fechaExpiracion = null;
-                            escritor.println("Ingrese la fecha de expiración del archivo (dd/MM/yyyy HH:mm):");
-                            String fechaExpiracionString = lector.readLine();
-
-                            fechaExpiracion = formatoFechaHora.parse(fechaExpiracionString);
-                            
-                            System.out.println(fechaExpiracion);
-
-                            String destinationPath = "compartidos/" + sourceFile.getName();
-
-                            try {
-                                File destinationFile = new File(destinationPath);
-
-                                if (!destinationFile.getParentFile().exists() && !destinationFile.getParentFile().mkdirs()) {
-                                    throw new IOException("No se pudo crear el directorio de destino.");
-                                }
-
-                                Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                                System.out.println("Archivo subido correctamente: " + destinationFile.getAbsolutePath());
-
-                                SharedFiles archivo = new SharedFiles(1, activeUser.getId(), sourceFile.getName(), 0, "password", fechaExpiracion);
-                                FileManager.saveSharedFileToServer(archivo);
-
-                                escritor.println("El archivo ha sido subido de forma correcta");
-
-                            } catch (IOException e) {
-                                escritor.println("Error al subir el archivo: " + e.getMessage());
-                                e.printStackTrace(); // Para obtener más detalles sobre el error
-                            }
-                        } else {
+                        if (argumento.isEmpty()) {
                             escritor.println("Ingresa la ruta del archivo a subir.");
+                            break;
+                        }
+
+                        File sourceFile = new File(argumento);
+
+                        if (!sourceFile.isAbsolute()) {
+                            escritor.println("Por favor, ingresa la ruta absoluta del archivo.");
+                            break;
+                        }
+
+                        if (!sourceFile.exists()) {
+                            escritor.println("El archivo especificado no se encontró en la ruta: " + argumento);
+                            break;
+                        }
+
+                        escritor.println("Ingrese la contraseña para el archivo(deje en blanco para dejar sin contraseña)");
+                        String password = lector.readLine();
+
+                        escritor.println("Ingrese la fecha de expiración del archivo (dd/MM/yyyy HH:mm):");
+                        String fechaExpiracionString = lector.readLine();
+
+                        String regex = "\\d{2}/\\d{2}/\\d{4} \\d{2}:\\d{2}";
+                        if (!fechaExpiracionString.matches(regex)) {
+                            escritor.println("Error: La fecha ingresada no tiene el formato correcto. Use el formato dd/MM/yyyy HH:mm.");
+                            break;
+                        }
+
+                        SimpleDateFormat formatoFechaHora = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+                        formatoFechaHora.setLenient(false);
+                        Date fechaExpiracion;
+
+                        fechaExpiracion = formatoFechaHora.parse(fechaExpiracionString);
+
+                        archivosCompartidos = FileManager.readSharedFilesFromServer();
+
+                        String destinationPath = "compartidos/" + sourceFile.getName();
+                        File destinationFile = new File(destinationPath);
+
+                        try {
+                            if (!destinationFile.getParentFile().exists() && !destinationFile.getParentFile().mkdirs()) {
+                                throw new IOException("No se pudo crear el directorio de destino.");
+                            }
+
+                            Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                            System.out.println("Archivo subido correctamente a: " + destinationFile.getAbsolutePath());
+
+                            int newId = archivosCompartidos.size() + 1;
+                            SharedFiles archivoCompartido = new SharedFiles(newId, activeUser.getId(), sourceFile.getName(), 0, password, fechaExpiracion);
+                            FileManager.saveSharedFileToServer(archivoCompartido);
+
+                            escritor.println("El archivo ha sido subido y registrado correctamente.");
+                        } catch (IOException e) {
+                            escritor.println("Error al subir el archivo: " + e.getMessage());
+                            e.printStackTrace();
                         }
                         break;
 
                     case "bajarArchivos":
-                        if (!argumento.isEmpty()) {
-                            String filePath = "compartidos/" + argumento;
-                            File fileToDownload = new File(filePath);
-
-                            System.out.println("Buscando el archivo para descargar en: " + fileToDownload.getAbsolutePath());
-
-                            if (!fileToDownload.exists()) {
-                                escritor.println("El archivo especificado no se encontró: " + fileToDownload.getAbsolutePath());
-                                break;
-                            }
-
-                            Socket descargador = servidor.accept();
-
-                            try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
-                                    OutputStream outputStream = descargador.getOutputStream()) {
-
-                                byte[] buffer = new byte[1024];
-                                int bytesRead;
-
-                                while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                                    outputStream.write(buffer, 0, bytesRead);
-                                }
-
-                                outputStream.flush();
-                                escritor.println("Archivo descargado correctamente: " + fileToDownload.getName());
-
-                            } catch (IOException e) {
-                                escritor.println("Error al descargar el archivo: " + e.getMessage());
-                            }
-
-                        } else {
+                        if (argumento.isEmpty()) {
                             escritor.println("Ingresa el nombre del archivo a descargar.");
+                            break;
+                        }
+                        String filePath = "compartidos/" + argumento;
+
+                        File fileToDownload = new File(filePath);
+                        
+                        System.out.println("Tamaño del archivo: " + fileToDownload.length() + " bytes");
+
+                        System.out.println("Buscando el archivo para descargar en: " + fileToDownload.getAbsolutePath());
+
+                        if (!fileToDownload.exists()) {
+                            escritor.println("El archivo especificado no se encontró: " + fileToDownload.getAbsolutePath());
+                            break;
+                        }
+
+                        // Aceptar la conexión del cliente
+                        Socket descargador = servidor.accept();
+
+                        try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
+                                OutputStream outputStream = descargador.getOutputStream()) {
+
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+
+                            // Leer el archivo y enviarlo al cliente
+                            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                                outputStream.write(buffer, 0, bytesRead);
+                            }
+
+                            outputStream.flush(); // Asegúrate de que todos los datos se envían
+
+                            // Enviar un mensaje final para indicar que la transferencia ha terminado
+                            outputStream.write("FIN".getBytes()); // Mensaje final
+
+                        } catch (IOException e) {
+                            escritor.println("Error al descargar el archivo: " + e.getMessage());
+                            e.printStackTrace(); // Para obtener más detalles sobre el error
+                        } finally {
+                            try {
+                                descargador.close(); // Cerrar el socket del cliente
+                            } catch (IOException e) {
+                                System.err.println("Error al cerrar el socket del cliente: " + e.getMessage());
+                            }
                         }
                         break;
-
                     default:
                         if (reverseMode) {
                             String reversa = new StringBuilder(entrada).reverse().toString();

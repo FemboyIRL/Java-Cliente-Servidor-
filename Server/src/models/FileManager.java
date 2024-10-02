@@ -5,6 +5,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -69,8 +72,10 @@ public class FileManager {
             archivoObj.put("usuarioID", archivoCompartido.getUsuarioID());
             archivoObj.put("nombre", archivoCompartido.getNombre());
             archivoObj.put("descargas", archivoCompartido.getDescargas());
-            archivoObj.put("password", archivoCompartido.getNombre());
-            archivoObj.put("fechaExpiracion", archivoCompartido.getDescargas());
+            archivoObj.put("password", archivoCompartido.getPassword());
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm");
+            String fechaFormateada = dateFormat.format(archivoCompartido.getFechaExpiracion());
+            archivoObj.put("fechaExpiracion", fechaFormateada);
 
             archivosArray.add(archivoObj);
         } else {
@@ -100,7 +105,7 @@ public class FileManager {
             Object obj = jsonParser.parse(reader);
             JSONArray archivosArray = (JSONArray) obj;
 
-            SimpleDateFormat formatoFechaHora = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
 
             for (Object archivoObj : archivosArray) {
                 JSONObject archivoJSON = (JSONObject) archivoObj;
@@ -112,16 +117,16 @@ public class FileManager {
                 String password = (String) archivoJSON.get("password");
                 String fechaExpiracionString = (String) archivoJSON.get("fechaExpiracion");
 
-                Date fechaExpiracion = null;
-                fechaExpiracion = formatoFechaHora.parse(fechaExpiracionString);
-                
+                LocalDateTime fechaExpiracionLocalDateTime = LocalDateTime.parse(fechaExpiracionString, formatter);
+                Date fechaExpiracionDate = Date.from(fechaExpiracionLocalDateTime.atZone(ZoneId.systemDefault()).toInstant());
+
                 SharedFiles archivoCompartido = new SharedFiles();
                 archivoCompartido.setId(id);
                 archivoCompartido.setUsuarioID(usuarioID);
                 archivoCompartido.setNombre(nombre);
                 archivoCompartido.setDescargas(descargas);
                 archivoCompartido.setPassword(password);
-                archivoCompartido.setFechaExpiracion(fechaExpiracion);
+                archivoCompartido.setFechaExpiracion(fechaExpiracionDate);
 
                 archivosCompartidosList.add(archivoCompartido);
             }
@@ -131,6 +136,36 @@ public class FileManager {
         }
 
         return archivosCompartidosList;
+    }
+
+    public static void deleteSharedFilesFromFile(List<SharedFiles> filesToDelete) {
+        String filePath = "archivos_compartidos.json"; // Ruta del archivo donde se almacenan los archivos compartidos
+        File file = new File(filePath);
+        List<JSONObject> jsonArray = connectToFile(filePath);
+        JSONArray archivosArray = new JSONArray();
+        archivosArray.addAll(jsonArray);
+
+        JSONArray updatedArchivosArray = new JSONArray();
+
+        List<Integer> idsToDelete = new ArrayList<>();
+        for (SharedFiles archivo : filesToDelete) {
+            idsToDelete.add(archivo.getId()); // Agregar los IDs de los archivos a eliminar
+        }
+
+        for (Object obj : archivosArray) {
+            JSONObject jsonObj = (JSONObject) obj;
+            int archivoId = ((Long) jsonObj.get("id")).intValue();
+            if (!idsToDelete.contains(archivoId)) {
+                updatedArchivosArray.add(jsonObj); // Mantener archivos que no se eliminarán
+            }
+        }
+
+        try (FileWriter fileWriter = new FileWriter(file)) {
+            fileWriter.write(updatedArchivosArray.toJSONString()); // Escribir la lista actualizada en el archivo
+            System.out.println("Archivos compartidos actualizados en el archivo: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Error al escribir en el archivo: " + e.getMessage());
+        }
     }
 
     public static void saveUserToFile(User user) {

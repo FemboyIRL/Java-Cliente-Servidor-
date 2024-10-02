@@ -78,6 +78,8 @@ public class SharedFiles {
     // Método para verificar si el archivo ha expirado
     public boolean haExpirado() {
         Date currentDate = new Date();
+        System.out.println(currentDate);
+        System.out.println(fechaExpiracion);
         return fechaExpiracion != null && currentDate.after(fechaExpiracion);
     }
 
