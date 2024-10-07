@@ -1,6 +1,8 @@
 package models;
 
+
 import java.util.Date;
+import java.util.List;
 
 public class SharedFiles {
 
@@ -9,21 +11,23 @@ public class SharedFiles {
     private int usuarioID;
     private String nombre;
     private int descargas;
-    private String password; // Atributo para la contraseña
-    private Date fechaExpiracion; // Atributo para la fecha de expiración
+    private String password;
+    private Date fechaExpiracion;
+    private List<Comentarios> comentarios; // Atributo para los comentarios
 
     // Constructor vacío
     public SharedFiles() {
     }
 
     // Constructor con parámetros
-    public SharedFiles(int id, int usuarioID, String nombre, int descargas, String password, Date fechaExpiracion) {
+    public SharedFiles(int id, int usuarioID, String nombre, int descargas, String password, Date fechaExpiracion, List<Comentarios> comentarios) {
         this.id = id;
         this.usuarioID = usuarioID;
         this.nombre = nombre;
         this.descargas = descargas;
-        this.password = password; // Inicialización de la contraseña
-        this.fechaExpiracion = fechaExpiracion; // Inicialización de la fecha de expiración
+        this.password = password;
+        this.fechaExpiracion = fechaExpiracion;
+        this.comentarios = comentarios; // Inicialización de los comentarios
     }
 
     // Getters y Setters
@@ -75,11 +79,17 @@ public class SharedFiles {
         this.fechaExpiracion = fechaExpiracion;
     }
 
+    public List<Comentarios> getComentarios() {
+        return comentarios;
+    }
+
+    public void setComentarios(List<Comentarios> comentarios) {
+        this.comentarios = comentarios;
+    }
+
     // Método para verificar si el archivo ha expirado
     public boolean haExpirado() {
         Date currentDate = new Date();
-        System.out.println(currentDate);
-        System.out.println(fechaExpiracion);
         return fechaExpiracion != null && currentDate.after(fechaExpiracion);
     }
 
@@ -96,8 +106,9 @@ public class SharedFiles {
                 ", usuarioID=" + usuarioID +
                 ", nombre='" + nombre + '\'' +
                 ", descargas=" + descargas +
-                ", password='" + password + '\'' + // Incluir la contraseña en la representación del objeto
+                ", password='" + password + '\'' +
                 ", fechaExpiracion=" + fechaExpiracion +
+                ", comentarios=" + comentarios + // Incluir los comentarios en la representación del objeto
                 '}';
     }
 }

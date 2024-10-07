@@ -13,9 +13,12 @@ import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import models.Comentarios;
 import models.FileManager;
 import models.Recado;
 import models.SharedFiles;
@@ -34,6 +37,7 @@ public class Servidor {
             String username;
             int passwordCounter = 0;
             boolean reverseMode = false;
+            boolean helpMode = false;
             List<User> users;
 
             System.out.println("Servidor en línea");
@@ -68,7 +72,7 @@ public class Servidor {
                         if (password.equals(activeUser.getPassword())) {
                             _manageMessages(activeUser, lector, escritor);
                             escritor.println("Felicidades te has logeado");
-                            manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter, servidor, cliente);
+                            manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter);
                             break;
                         } else {
                             escritor.println("Contraseña incorrecta. Intente nuevamente:");
@@ -89,7 +93,7 @@ public class Servidor {
                     FileManager.saveUserToFile(newUser);
                     activeUser = newUser;
                     escritor.println("Felicidades te has logeado");
-                    manejarComandos(lector, escritor, reverseMode, activeUser, passwordCounter, servidor, cliente);
+                    manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter);
 
                 }
             }
@@ -174,7 +178,7 @@ public class Servidor {
         }
     }
 
-    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, User activeUser, int passwordCounter, ServerSocket servidor, Socket cliente) throws IOException, java.text.ParseException {
+    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, boolean helpMode, User activeUser, ServerSocket servidor, Socket cliente, int passwordCounter) throws IOException, java.text.ParseException {
         String entrada;
         String palabraDeletrear = null;
         int indexLetra = 0;
@@ -188,6 +192,42 @@ public class Servidor {
                 if (entrada == null) {
                     escritor.println("Entrada nula, por favor intente nuevamente.");
                     escritor.flush();
+                    continue;
+                }
+
+                if (helpMode) {
+                    Map<String, String> comandos = new HashMap<>();
+                    // Agregar comandos y sus explicaciones
+                    comandos.put("deletrear", "Inicia el deletreo de una palabra proporcionada.");
+                    comandos.put("reverse off", "Sale del modo reversa.");
+                    comandos.put("reverse on", "Entra en modo reversa.");
+                    comandos.put("pt", "Cierra la sesion actual");
+                    comandos.put("usuarios", "Lista todos los usuarios.");
+                    comandos.put("recado", "Envía un recado a otro usuario.");
+                    comandos.put("bloquear", "Bloquea a un usuario específico.");
+                    comandos.put("desbloquear", "Desbloquea a un usuario específico.");
+                    comandos.put("listarArchivos", "Lista los archivos compartidos.");
+                    comandos.put("subirArchivos", "Sube un archivo al servidor.");
+                    comandos.put("bajarArchivos", "Descarga un archivo del servidor.");
+                    comandos.put("comentar", "Agrega un comentario a un archivo compartido.");
+                    comandos.put("verComentarios", "Muestra los comentarios del archivo compartido proporcionado");
+                    comandos.put("ayuda", "Muestra esta ayuda con todos los comandos.");
+
+                    if (indexLetra < comandos.size()) {
+                        List<String> keys = new ArrayList<>(comandos.keySet());
+
+                        String clave = keys.get(indexLetra);
+                        String valor = comandos.get(clave);
+
+                        escritor.println(clave + ": " + valor);
+                        escritor.flush();
+
+                        indexLetra++;
+                    } else {
+                        escritor.println("---------Fin de los comandos---------");
+                        escritor.flush();
+                        helpMode = false;
+                    }
                     continue;
                 }
 
@@ -413,7 +453,8 @@ public class Servidor {
                             System.out.println("Archivo subido correctamente a: " + destinationFile.getAbsolutePath());
 
                             int newId = archivosCompartidos.size() + 1;
-                            SharedFiles archivoCompartido = new SharedFiles(newId, activeUser.getId(), sourceFile.getName(), 0, password, fechaExpiracion);
+                            List<Comentarios> comentarios = new ArrayList<>();
+                            SharedFiles archivoCompartido = new SharedFiles(newId, activeUser.getId(), sourceFile.getName(), 0, password, fechaExpiracion, comentarios);
                             FileManager.saveSharedFileToServer(archivoCompartido);
 
                             escritor.println("El archivo ha sido subido y registrado correctamente.");
@@ -422,7 +463,6 @@ public class Servidor {
                             e.printStackTrace();
                         }
                         break;
-
                     case "bajarArchivos":
                         if (argumento.isEmpty()) {
                             escritor.println("Ingresa el nombre del archivo a descargar.");
@@ -466,7 +506,51 @@ public class Servidor {
                             }
                         }
                         break;
+                    case "comentar":
+                        boolean fileExists = false;
+                        SharedFiles fileToComment = null;
 
+                        if (argumento.isEmpty()) {
+                            escritor.println("Necesitas especificar el nombre del archivo");
+                            break;
+                        }
+
+                        archivosCompartidos = FileManager.readSharedFilesFromServer();
+
+                        for (SharedFiles file : archivosCompartidos) {
+                            if (argumento.equals(file.getNombre())) {
+                                fileExists = true;
+                                fileToComment = file;
+                                break;
+                            }
+                        }
+
+                        if (!fileExists) {
+                            escritor.println("No se encontró el archivo indicado");
+                            break;
+                        }
+
+                        escritor.println("Escribe el contenido del comentario a dejar en el archivo " + argumento);
+                        String comentario = lector.readLine();
+
+                        if (comentario.isEmpty()) {
+                            escritor.println("Escriba un comentario");
+                            break;
+                        }
+
+                        Comentarios nuevoComentario = new Comentarios(activeUser.getId(), fileToComment.getId(), comentario);
+                        Comentarios.agregarComentario(fileToComment, nuevoComentario);
+
+                        FileManager.updateSharedFileInFile(fileToComment);
+
+                        escritor.println("Comentario agregado correctamente al archivo: " + fileToComment.getNombre());
+
+                        break;
+                    case "ayuda":
+                        escritor.println("---------Mostrando comandos---------");
+                        helpMode = true;
+                        escritor.flush();
+                        break;
                     default:
                         if (reverseMode) {
                             String reversa = new StringBuilder(entrada).reverse().toString();

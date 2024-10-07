@@ -39,7 +39,7 @@ public class FileManager {
                 System.out.println("Error al leer el archivo existente: " + e.getMessage());
             }
         }
-
+        
         List<JSONObject> jsonObjectList = new ArrayList<>();
         for (Object obj : objArray) {
             jsonObjectList.add((JSONObject) obj);
@@ -48,6 +48,55 @@ public class FileManager {
         return jsonObjectList;
     }
 
+    public static void updateSharedFileInFile(SharedFiles updatedFile) {
+        String filePath = "archivos_compartidos.json";
+        File file = new File(filePath);
+        List<JSONObject> jsonArray = connectToFile(filePath);
+        JSONArray archivosArray = new JSONArray();
+        archivosArray.addAll(jsonArray);
+        boolean fileFound = false;
+
+        for (int i = 0; i < archivosArray.size(); i++) {
+            JSONObject archivoJSON = (JSONObject) archivosArray.get(i);
+            int fileId = ((Long) archivoJSON.get("id")).intValue();
+
+            if (fileId == updatedFile.getId()) {
+                fileFound = true;
+                archivoJSON.put("nombre", updatedFile.getNombre());
+                archivoJSON.put("descargas", updatedFile.getDescargas());
+                archivoJSON.put("password", updatedFile.getPassword());
+                archivoJSON.put("fechaExpiracion", updatedFile.getFechaExpiracion());
+
+                // Actualizar los comentarios
+                JSONArray comentariosArray = new JSONArray();
+                for (Comentarios comentario : updatedFile.getComentarios()) {
+                    JSONObject comentarioJSON = new JSONObject();
+                    comentarioJSON.put("usuarioID", comentario.getUsuarioID());
+                    comentarioJSON.put("archivoID", comentario.getArchivoID());
+                    comentarioJSON.put("comentario", comentario.getComentario());
+                    comentariosArray.add(comentarioJSON);
+                }
+                archivoJSON.put("comentarios", comentariosArray);
+
+                archivosArray.set(i, archivoJSON);
+                break;
+            }
+        }
+
+        if (!fileFound) {
+            System.out.println("Archivo con ID " + updatedFile.getId() + " no encontrado.");
+            return;
+        }
+
+        // Guardar los cambios en el archivo
+        try (FileWriter fileWriter = new FileWriter(file)) {
+            fileWriter.write(archivosArray.toJSONString());
+            System.out.println("Archivo actualizado en el archivo: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            System.out.println("Error al escribir en el archivo: " + e.getMessage());
+        }
+    }
+    
     public static void saveSharedFileToServer(SharedFiles archivoCompartido) {
         String filePath = "archivos_compartidos.json";
         File file = new File(filePath);
@@ -77,6 +126,19 @@ public class FileManager {
             String fechaFormateada = dateFormat.format(archivoCompartido.getFechaExpiracion());
             archivoObj.put("fechaExpiracion", fechaFormateada);
 
+            JSONArray comentariosArray = new JSONArray();
+
+            for (Comentarios comentario : archivoCompartido.getComentarios()) {
+                JSONObject comentarioObj = new JSONObject();
+                comentarioObj.put("usuarioID", comentario.getUsuarioID());
+                comentarioObj.put("archivoID", comentario.getArchivoID());
+                comentarioObj.put("comentario", comentario.getComentario());
+
+                comentariosArray.add(comentarioObj);
+            }
+
+            archivoObj.put("comentarios", comentariosArray);
+
             archivosArray.add(archivoObj);
         } else {
             System.out.println("El archivo con ID " + archivoCompartido.getId() + " ya existe en el archivo.");
@@ -105,8 +167,8 @@ public class FileManager {
             Object obj = jsonParser.parse(reader);
             JSONArray archivosArray = (JSONArray) obj;
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
-
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+                
             for (Object archivoObj : archivosArray) {
                 JSONObject archivoJSON = (JSONObject) archivoObj;
 
@@ -127,6 +189,24 @@ public class FileManager {
                 archivoCompartido.setDescargas(descargas);
                 archivoCompartido.setPassword(password);
                 archivoCompartido.setFechaExpiracion(fechaExpiracionDate);
+
+                JSONArray comentariosArray = (JSONArray) archivoJSON.get("comentarios");
+                List<Comentarios> listaComentarios = new ArrayList<>();
+
+                if (comentariosArray != null) {
+                    for (Object comentarioObj : comentariosArray) {
+                        JSONObject comentarioJSON = (JSONObject) comentarioObj;
+
+                        int comentarioUsuarioID = ((Long) comentarioJSON.get("usuarioID")).intValue();
+                        int comentarioArchivoID = ((Long) comentarioJSON.get("archivoID")).intValue();
+                        String comentarioTexto = (String) comentarioJSON.get("comentario");
+
+                        Comentarios comentario = new Comentarios(comentarioUsuarioID, comentarioArchivoID, comentarioTexto);
+                        listaComentarios.add(comentario);
+                    }
+                }
+
+                archivoCompartido.setComentarios(listaComentarios);
 
                 archivosCompartidosList.add(archivoCompartido);
             }
