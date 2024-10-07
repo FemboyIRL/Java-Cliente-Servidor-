@@ -38,6 +38,7 @@ public class Servidor {
             int passwordCounter = 0;
             boolean reverseMode = false;
             boolean helpMode = false;
+            boolean showComments = false;
             List<User> users;
 
             System.out.println("Servidor en línea");
@@ -72,7 +73,7 @@ public class Servidor {
                         if (password.equals(activeUser.getPassword())) {
                             _manageMessages(activeUser, lector, escritor);
                             escritor.println("Felicidades te has logeado");
-                            manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter);
+                            manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter, showComments);
                             break;
                         } else {
                             escritor.println("Contraseña incorrecta. Intente nuevamente:");
@@ -93,7 +94,7 @@ public class Servidor {
                     FileManager.saveUserToFile(newUser);
                     activeUser = newUser;
                     escritor.println("Felicidades te has logeado");
-                    manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter);
+                    manejarComandos(lector, escritor, reverseMode, helpMode, activeUser, servidor, cliente, passwordCounter, showComments);
 
                 }
             }
@@ -178,7 +179,7 @@ public class Servidor {
         }
     }
 
-    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, boolean helpMode, User activeUser, ServerSocket servidor, Socket cliente, int passwordCounter) throws IOException, java.text.ParseException {
+    private static void manejarComandos(BufferedReader lector, PrintWriter escritor, boolean reverseMode, boolean helpMode, User activeUser, ServerSocket servidor, Socket cliente, int passwordCounter, boolean showComments) throws IOException, java.text.ParseException {
         String entrada;
         String palabraDeletrear = null;
         int indexLetra = 0;
@@ -545,6 +546,32 @@ public class Servidor {
 
                         escritor.println("Comentario agregado correctamente al archivo: " + fileToComment.getNombre());
 
+                        break;
+                    case "verComentarios":
+                        fileExists = false;
+                        fileToComment = null;
+                        if (argumento.isEmpty()) {
+                            escritor.println("Necesitas especificar el nombre del archivo");
+                            break;
+                        }
+                        
+                        archivosCompartidos = FileManager.readSharedFilesFromServer();
+
+                        for (SharedFiles file : archivosCompartidos) {
+                            if (argumento.equals(file.getNombre())) {
+                                fileExists = true;
+                                fileToComment = file;
+                                break;
+                            }
+                        }
+
+                        if (!fileExists) {
+                            escritor.println("No se encontró el archivo indicado");
+                            break;
+                        }
+                        
+                        escritor.println(fileToComment.getComentarios());
+                        
                         break;
                     case "ayuda":
                         escritor.println("---------Mostrando comandos---------");

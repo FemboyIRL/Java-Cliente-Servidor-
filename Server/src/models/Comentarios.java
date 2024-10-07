@@ -48,8 +48,8 @@ public class Comentarios {
     @Override
     public String toString() {
         return "Comentarios{" +
-                "usuarioID=" + usuarioID +
-                ", archivoID=" + archivoID +
+                "Comentario: " + comentario +
+                " Usuario: " + usuarioID +
                 '}';
     }
 

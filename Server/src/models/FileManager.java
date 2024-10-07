@@ -65,7 +65,6 @@ public class FileManager {
                 archivoJSON.put("nombre", updatedFile.getNombre());
                 archivoJSON.put("descargas", updatedFile.getDescargas());
                 archivoJSON.put("password", updatedFile.getPassword());
-                archivoJSON.put("fechaExpiracion", updatedFile.getFechaExpiracion());
 
                 // Actualizar los comentarios
                 JSONArray comentariosArray = new JSONArray();
