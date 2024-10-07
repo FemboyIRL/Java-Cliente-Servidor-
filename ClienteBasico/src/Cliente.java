@@ -39,11 +39,35 @@ public class Cliente {
                             if (partes.length > 1) {
                                 String nombreArchivo = partes[1];
 
-                                try (Socket fileSocket = new Socket("localhost", 8080); 
-                                        InputStream inputStream = fileSocket.getInputStream()) {
-                                    recibirArchivo(inputStream, nombreArchivo);
-                                } catch (IOException e) {
-                                    System.err.println("Error al recibir el archivo: " + e.getMessage());
+                                String archivoResponse = lector.readLine();
+                                System.out.println(archivoResponse); 
+
+                                // Si el servidor indica que el archivo tiene contraseña
+                                if (archivoResponse.equals("Ingrese la contraseña del archivo")) {
+                                    String passwordArchivo = teclado.readLine();
+                                    escritor.println(passwordArchivo); // Enviar contraseña al servidor
+
+                                    // Verificar la respuesta del servidor respecto a la contraseña
+                                    String passwordCheckResponse = lector.readLine();
+                                    if (passwordCheckResponse.equals("Contraseña correcta. Iniciando descarga...")) {
+                                        // Aquí puedes implementar la lógica para recibir el archivo
+                                        try (Socket fileSocket = new Socket("localhost", 8080);
+                                                InputStream inputStream = fileSocket.getInputStream()) {
+                                            recibirArchivo(inputStream, nombreArchivo);
+                                        } catch (IOException e) {
+                                            System.err.println("Error al recibir el archivo: " + e.getMessage());
+                                        }
+                                    } else {
+                                        System.out.println("Contraseña incorrecta. No se puede descargar el archivo.");
+                                    }
+                                } else if (archivoResponse.equals("El archivo se descargará sin contraseña.")) {
+                                    // Si el archivo no tiene contraseña, simplemente lo descargamos
+                                    try (Socket fileSocket = new Socket("localhost", 8080);
+                                            InputStream inputStream = fileSocket.getInputStream()) {
+                                        recibirArchivo(inputStream, nombreArchivo);
+                                    } catch (IOException e) {
+                                        System.err.println("Error al recibir el archivo: " + e.getMessage());
+                                    }
                                 }
                             } else {
                                 System.out.println("Debe proporcionar el nombre del archivo.");

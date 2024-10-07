@@ -465,9 +465,18 @@ public class Servidor {
                         }
                         break;
                     case "bajarArchivos":
+                        SharedFiles file = null;
                         if (argumento.isEmpty()) {
                             escritor.println("Ingresa el nombre del archivo a descargar.");
                             break;
+                        }
+
+                        archivosCompartidos = FileManager.readSharedFilesFromServer();
+
+                        for (SharedFiles archivo : archivosCompartidos) {
+                            if (argumento.equals(archivo.getNombre())) {
+                                file = archivo;
+                            }
                         }
 
                         String filePath = "compartidos/" + argumento;
@@ -480,30 +489,77 @@ public class Servidor {
                             break;
                         }
 
-                        // Aceptar la conexión del cliente
-                        Socket descargador = servidor.accept();
+                        String filePassword = file.getPassword();
+                        System.out.println(filePassword);
 
-                        try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
-                                OutputStream outputStream = descargador.getOutputStream()) {
+                        if (!filePassword.isEmpty()) {
+                            // Si el archivo tiene contraseña, informar al cliente
+                            escritor.println("Ingrese la contraseña del archivo");
 
-                            byte[] buffer = new byte[1024];
-                            int bytesRead;
+                            // Leer la contraseña enviada por el cliente
+                            String passwordCliente = lector.readLine();
 
-                            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                                outputStream.write(buffer, 0, bytesRead);
+                            // Verificar la contraseña
+                            if (passwordCliente.equals(filePassword)) {
+                                escritor.println("Contraseña correcta. Iniciando descarga...");
+
+                                // Aceptar la conexión del cliente
+                                Socket descargador = servidor.accept();
+
+                                try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
+                                        OutputStream outputStream = descargador.getOutputStream()) {
+
+                                    byte[] buffer = new byte[1024];
+                                    int bytesRead;
+
+                                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                                        outputStream.write(buffer, 0, bytesRead);
+                                    }
+
+                                    outputStream.flush();
+
+                                } catch (IOException e) {
+                                    escritor.println("Error al descargar el archivo: " + e.getMessage());
+                                    e.printStackTrace(); // Para obtener más detalles sobre el error
+                                } finally {
+                                    try {
+                                        descargador.close(); // Cerrar el socket del cliente
+                                    } catch (IOException e) {
+                                        System.err.println("Error al cerrar el socket del cliente: " + e.getMessage());
+                                    }
+                                }
+                            } else {
+                                escritor.println("Contraseña incorrecta. No se puede descargar el archivo.");
                             }
+                        } else {
+                            // Si el archivo no tiene contraseña, simplemente se descarga
+                            escritor.println("El archivo se descargará sin contraseña.");
 
-                            outputStream.flush();
-                            escritor.println("Archivo descargado correctamente: " + fileToDownload.getName());
+                            // Aceptar la conexión del cliente
+                            Socket descargador = servidor.accept();
 
-                        } catch (IOException e) {
-                            escritor.println("Error al descargar el archivo: " + e.getMessage());
-                            e.printStackTrace(); // Para obtener más detalles sobre el error
-                        } finally {
-                            try {
-                                descargador.close(); // Cerrar el socket del cliente
+                            try (FileInputStream fileInputStream = new FileInputStream(fileToDownload);
+                                    OutputStream outputStream = descargador.getOutputStream()) {
+
+                                byte[] buffer = new byte[1024];
+                                int bytesRead;
+
+                                while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                                    outputStream.write(buffer, 0, bytesRead);
+                                }
+
+                                outputStream.flush();
+                                escritor.println("Archivo descargado correctamente: " + fileToDownload.getName());
+
                             } catch (IOException e) {
-                                System.err.println("Error al cerrar el socket del cliente: " + e.getMessage());
+                                escritor.println("Error al descargar el archivo: " + e.getMessage());
+                                e.printStackTrace(); // Para obtener más detalles sobre el error
+                            } finally {
+                                try {
+                                    descargador.close(); // Cerrar el socket del cliente
+                                } catch (IOException e) {
+                                    System.err.println("Error al cerrar el socket del cliente: " + e.getMessage());
+                                }
                             }
                         }
                         break;
@@ -518,10 +574,10 @@ public class Servidor {
 
                         archivosCompartidos = FileManager.readSharedFilesFromServer();
 
-                        for (SharedFiles file : archivosCompartidos) {
-                            if (argumento.equals(file.getNombre())) {
+                        for (SharedFiles archivo : archivosCompartidos) {
+                            if (argumento.equals(archivo.getNombre())) {
                                 fileExists = true;
-                                fileToComment = file;
+                                fileToComment = archivo;
                                 break;
                             }
                         }
@@ -554,13 +610,13 @@ public class Servidor {
                             escritor.println("Necesitas especificar el nombre del archivo");
                             break;
                         }
-                        
+
                         archivosCompartidos = FileManager.readSharedFilesFromServer();
 
-                        for (SharedFiles file : archivosCompartidos) {
-                            if (argumento.equals(file.getNombre())) {
+                        for (SharedFiles archivo : archivosCompartidos) {
+                            if (argumento.equals(archivo.getNombre())) {
                                 fileExists = true;
-                                fileToComment = file;
+                                fileToComment = archivo;
                                 break;
                             }
                         }
@@ -569,9 +625,9 @@ public class Servidor {
                             escritor.println("No se encontró el archivo indicado");
                             break;
                         }
-                        
+
                         escritor.println(fileToComment.getComentarios());
-                        
+
                         break;
                     case "ayuda":
                         escritor.println("---------Mostrando comandos---------");
